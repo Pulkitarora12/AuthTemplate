@@ -21,6 +21,7 @@ public class NoteServiceImpl implements NoteService {
         Note note = new Note();
         note.setOwnerUserName(userName);
         note.setContent(content);
+        noteRepository.save(note);
         return note;
     }
 
