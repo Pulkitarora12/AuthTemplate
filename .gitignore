@@ -1,2 +1,28 @@
 /notes/.env
 /notes/notes/.env
+
+# IDE
+.idea/
+
+# React app - dependencies & build
+secure-notes-react/node_modules/
+secure-notes-react/build/
+secure-notes-react/.pnp
+secure-notes-react/.pnp.js
+
+# Environment files
+secure-notes-react/.env
+secure-notes-react/.env.development
+secure-notes-react/.env.local
+secure-notes-react/.env.development.local
+secure-notes-react/.env.test.local
+secure-notes-react/.env.production.local
+
+# Logs
+secure-notes-react/npm-debug.log*
+secure-notes-react/yarn-debug.log*
+secure-notes-react/yarn-error.log*
+
+# Misc
+secure-notes-react/.DS_Store
+secure-notes-react/coverage/

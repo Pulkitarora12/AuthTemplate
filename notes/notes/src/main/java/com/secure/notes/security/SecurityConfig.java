@@ -46,12 +46,14 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         // only needed when credentials are being stored as cookies or sessions
-//        http.csrf(csrf ->
-//                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-//                        .ignoringRequestMatchers("/api/auth/public/**")
-//        );
+        http.csrf(csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers("/api/auth/public/**")
+        );
 
-        http.csrf(csrf -> csrf.disable());
+//        http.csrf(csrf -> csrf.disable());
+
+        http.cors(withDefaults());
 
         http.authorizeHttpRequests(
                 (request) -> request

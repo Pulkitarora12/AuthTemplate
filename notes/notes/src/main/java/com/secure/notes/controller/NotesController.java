@@ -1,7 +1,6 @@
 package com.secure.notes.controller;
 
 import com.secure.notes.entity.Note;
-import com.secure.notes.repository.NoteRepository;
 import com.secure.notes.service.NoteService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -41,13 +40,14 @@ public class NotesController {
     public ResponseEntity<Note> updateNote(@PathVariable Long noteId, @RequestBody String content,
                                            @AuthenticationPrincipal UserDetails userDetails) {
         String ownerUsername = userDetails.getUsername();
-        Note note = noteService.updateNoteForUser(noteId, content);
+        Note note = noteService.updateNoteForUser(noteId, content, ownerUsername);
         return ResponseEntity.status(200).body(note);
     }
 
     @DeleteMapping("{noteId}")
-    public ResponseEntity<Void> deleteNote(@PathVariable Long noteId) {
-        noteService.deleteNoteForUser(noteId);
+    public ResponseEntity<Void> deleteNote(@PathVariable Long noteId, @AuthenticationPrincipal UserDetails userDetails) {
+        String ownerUsername = userDetails.getUsername();
+        noteService.deleteNoteForUser(noteId, ownerUsername);
         return ResponseEntity.noContent().build();
     }
 }
