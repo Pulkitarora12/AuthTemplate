@@ -24,6 +24,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 
 import java.time.LocalDate;
 
@@ -51,27 +53,27 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) throws Exception {
 
-        // only needed when credentials are being stored as cookies or sessions
-        http.csrf(csrf ->
-                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/api/auth/public/**")
-        );
-
-//        http.csrf(csrf -> csrf.disable());
 
         http.cors(withDefaults());
 
-        http.authorizeHttpRequests(
-                (request) -> request
+        http.csrf(csrf -> csrf.disable());
+
+//        http.csrf(csrf ->
+//                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+//                        .ignoringRequestMatchers("/api/auth/public/**")
+//                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+//        );
+
+        http.authorizeHttpRequests((requests)
+                        -> requests
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/csrf-token").permitAll()
                         .requestMatchers("/api/auth/public/**").permitAll()
                         .requestMatchers("/oauth2/**").permitAll()
-                        .requestMatchers("/api/csrf-token").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .anyRequest().authenticated()
-        ).oauth2Login(oauth2 -> {
-            oauth2.successHandler(oAuth2LoginSuccessHandler);
-        });
+                        .anyRequest().authenticated())
+                .oauth2Login(oauth2 -> {
+                    oauth2.successHandler(oAuth2LoginSuccessHandler);
+                });
 
         http.exceptionHandling(exception ->
                 exception.authenticationEntryPoint(unauthorizedHandler));
@@ -81,12 +83,6 @@ public class SecurityConfig {
         http.sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         );
-
-            // if any of these methods are allowed we wont be able to allow jwt to handle the authentication of
-        // request, they can be handled with the basic or session based credentials, so we must comment this and
-        // make the session stateless
-//        http.formLogin(withDefaults());  // has login/logout pages
-//        http.httpBasic(withDefaults());  // doesn't have any pages
 
         return http.build();
     }

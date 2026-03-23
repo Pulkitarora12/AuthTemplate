@@ -2,47 +2,44 @@ import axios from "axios";
 
 console.log("API URL:", process.env.REACT_APP_API_URL);
 
-// Create an Axios instance
+// Create Axios instance
 const api = axios.create({
-  baseURL: `${process.env.REACT_APP_API_URL}/api`,
-  headers: {
-    "Content-Type": "application/json",
+  baseURL: `${ process.env.REACT_APP_API_URL }/api`,
+headers: {
+  "Content-Type": "application/json",
     Accept: "application/json",
   },
-  withCredentials: true,
 });
 
-// Add a request interceptor to include JWT and CSRF tokens
+// Request interceptor to attach JWT
 api.interceptors.request.use(
-  async (config) => {
+  (config) => {
     const token = localStorage.getItem("JWT_TOKEN");
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    let csrfToken = localStorage.getItem("XSRF_TOKEN");
-    if (!csrfToken) {
-      try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_URL}/api/csrf-token`,
-          { withCredentials: true }
-        );
-        csrfToken = response.data.token;
-        localStorage.setItem("XSRF_TOKEN", csrfToken);
-      } catch (error) {
-        console.error("Failed to fetch CSRF token", error);
-      }
-    }
-
-    if (csrfToken) {
-      config.headers["X-XSRF-TOKEN"] = csrfToken;
-    }
-    console.log("X-XSRF-TOKEN " + csrfToken);
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+// Optional: Response interceptor (for handling 401 globally)
+api.interceptors.response.use(
+  (response) => response,
   (error) => {
+    if (error.response && error.response.status === 401) {
+      console.error("Unauthorized - redirecting to login");
+
+      // Optional: clear token & redirect
+      localStorage.removeItem("JWT_TOKEN");
+      // window.location.href = "/login";  // enable if needed
+    }
+
     return Promise.reject(error);
   }
 );
 
 export default api;
+

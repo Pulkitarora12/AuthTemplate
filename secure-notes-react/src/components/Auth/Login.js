@@ -45,6 +45,7 @@ const Login = () => {
     };
     localStorage.setItem("JWT_TOKEN", token);
     localStorage.setItem("USER", JSON.stringify(user));
+    localStorage.removeItem("XSRF_TOKEN");
 
     //store the token on the context state  so that it can be shared any where in our application by context provider
     setToken(token);

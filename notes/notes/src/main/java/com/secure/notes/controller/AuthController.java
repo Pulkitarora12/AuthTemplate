@@ -11,7 +11,11 @@ import com.secure.notes.security.response.LoginResponse;
 import com.secure.notes.security.jwt.JwtUtils;
 import com.secure.notes.security.response.MessageResponse;
 import com.secure.notes.security.response.UserInfoResponse;
+import com.secure.notes.security.services.UserDetailsImpl;
+import com.secure.notes.security.util.AuthUtil;
+import com.secure.notes.service.TotpService;
 import com.secure.notes.service.UserService;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,7 +27,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +56,12 @@ public class AuthController {
     @Autowired
     AuthenticationManager authenticationManager;
 
+    @Autowired
+    AuthUtil authUtil;
+
+    @Autowired
+    TotpService  totpService;
+
     @PostMapping("/public/signin")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         Authentication authentication;
@@ -69,7 +78,7 @@ public class AuthController {
 //      set the authentication
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         String jwtToken = jwtUtils.generateTokenFromUsername(userDetails);
 
@@ -184,6 +193,59 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/enable-2fa")
+    public ResponseEntity<?> enable2fa() {
+        Long userId = authUtil.loggedInUserId();
+
+        GoogleAuthenticatorKey key = userService.generate2FaSecret(userId);
+        String qrUrl = totpService.getQrUrl(key, authUtil.loggedInUser().getUserName());
+
+        return ResponseEntity.ok(qrUrl);
+    }
+
+    @PostMapping("/disable-2fa")
+    public ResponseEntity<?> disable2fa() {
+        Long userId = authUtil.loggedInUserId();
+        userService.disable2FA(userId);
+        return ResponseEntity.ok("2FA disabled successfully");
+    }
+
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<?> verify2fa(@RequestParam int code) {
+        User user = authUtil.loggedInUser();
+        boolean isValid = totpService.verifyCode(user.getTwoFactorSecret(), code);
+
+        if (isValid) {
+            userService.enable2FA(user.getUserId());
+            return ResponseEntity.ok("2FA verified and enabled successfully");
+        } else {
+            return ResponseEntity.badRequest().body("Invalid 2FA code");
+        }
+    }
+
+    @GetMapping("/user/2fa-status")
+    public ResponseEntity<?> get2FAStatus() {
+        User user = authUtil.loggedInUser();
+        if (user != null) {
+            return ResponseEntity.ok().body(Map.of("is2faEnabled", user.isTwoFactorEnabled()));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+    }
+
+    @PostMapping("/public/verify-2fa-login")
+    public ResponseEntity<String> verify2FALogin(@RequestParam int code,
+                                                 @RequestParam String jwtToken) {
+        String username = jwtUtils.getUserNameFromJwtToken(jwtToken);
+        User user = userService.findByUsername(username);
+        boolean isValid = userService.validate2FACode(user.getUserId(), code);
+        if (isValid) {
+            return ResponseEntity.ok("2FA Verified");
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid 2FA Code");
         }
     }
 
