@@ -1,37 +1,36 @@
-﻿# AuthTemplate
+# AuthTemplate
 
-AuthTemplate is a plug-and-play Spring Boot + React authentication boilerplate with JWT, OAuth2 (GitHub & Google), TOTP-based MFA, RBAC, email-based password reset, and audit logging — everything you need to bootstrap secure auth without starting from scratch.
+A plug-and-play Spring Boot + React authentication boilerplate. Drop it in, swap out the domain layer, and you have a production-ready auth system — JWT, OAuth2 (GitHub & Google), TOTP-based MFA, RBAC, email-based password reset, and audit logging — without building any of it from scratch.
 
 ---
 
-## What's inside
+## What's included
 
-**Auth**
+**Authentication**
 
 - JWT-based stateless authentication
 - OAuth2 login via GitHub and Google
 - Password reset via email (token-based, 24hr expiry)
 - BCrypt password encoding
-- Two-factor authentication (TOTP) via Google Authenticator
+
+**Two-factor authentication (TOTP)**
+
+- Compatible with Google Authenticator, Authy, 1Password, and any TOTP app
+- Per-user enable/disable with QR code setup flow
+- TOTP secret stored on the user entity, never exposed in API responses
 
 **User management**
 
-- Two roles: `ROLE_USER` and `ROLE_ADMIN`
+- Two roles out of the box: `ROLE_USER` and `ROLE_ADMIN`
 - Admins can lock accounts, expire credentials, enable/disable users, and force-update passwords
-- Account & credentials expiry dates tracked per user
-
-**Notes**
-
-- Each user owns their own notes (isolated by `ownerUsername`)
-- Full CRUD — create, read, update, delete
-- Every operation is audit-logged with timestamp and username
+- Account and credentials expiry dates tracked per user
 
 **Security config**
 
-- CSRF protection via `CookieCsrfTokenRepository` (disabled only for public auth routes)
-- CORS configured via `WebConfig` — frontend URL injected from env
+- CORS configured via `WebConfig` — frontend URL injected from environment
 - Stateless sessions (no server-side session storage)
 - Custom `AuthEntryPointJwt` for clean 401 JSON responses
+- CSRF support available via `CookieCsrfTokenRepository` (currently disabled for API usage — see Configuration)
 
 ---
 
@@ -41,6 +40,7 @@ AuthTemplate is a plug-and-play Spring Boot + React authentication boilerplate w
 | -------- | ------------------------------------------------- |
 | Backend  | Spring Boot 4.x, Spring Security, Spring Data JPA |
 | Auth     | JWT (jjwt 0.13), OAuth2 Client                    |
+| 2FA      | googleauth 1.4.0 (TOTP)                           |
 | Database | MySQL                                             |
 | Email    | Spring Mail (Gmail SMTP)                          |
 | Build    | Maven                                             |
@@ -54,12 +54,19 @@ AuthTemplate is a plug-and-play Spring Boot + React authentication boilerplate w
 
 - Java 21
 - MySQL running locally
-- A Gmail account with App Password (for email)
+- A Gmail account with App Password enabled (for password reset emails)
 - GitHub and/or Google OAuth app credentials
 
-### Environment variables
+### 1. Clone the repo
 
-Create a `.env` file in `notes/notes/` (it's gitignored):
+```bash
+git clone https://github.com/your-username/auth-template.git
+cd auth-template/notes/notes
+```
+
+### 2. Create a `.env` file
+
+Create `.env` inside `notes/notes/` (it's gitignored):
 
 ```env
 DB_NAME=your_db_name
@@ -79,110 +86,214 @@ GOOGLE_CLIENT=your_google_client_id
 GOOGLE_SECRET=your_google_client_secret
 ```
 
-> To generate a JWT secret, run `GenerateSecret.java` — it prints a secure base64-encoded 256-bit key.
+> To generate a secure JWT secret, run `GenerateSecret.java` — it prints a base64-encoded 256-bit key.
 
-### Run
+### 3. Run
 
 ```bash
-cd notes/notes
 mvn spring-boot:run
 ```
 
-Server starts on `http://localhost:8080`.
-
-Frontend URL defaults to `http://localhost:3000` — change it in `application.yaml` or via env if needed.
-
----
-
-## API overview
-
-### Public (no auth required)
-
-| Method | Endpoint                           | Description        |
-| ------ | ---------------------------------- | ------------------ |
-| POST   | `/api/auth/public/signin`          | Login, returns JWT |
-| POST   | `/api/auth/public/signup`          | Register new user  |
-| POST   | `/api/auth/public/forgot-password` | Send reset email   |
-| POST   | `/api/auth/public/reset-password`  | Reset with token   |
-| GET    | `/api/csrf-token`                  | Get CSRF token     |
-
-### Authenticated
-
-| Method | Endpoint             | Description           |
-| ------ | -------------------- | --------------------- |
-| GET    | `/api/auth/user`     | Get current user info |
-| GET    | `/api/auth/username` | Get current username  |
-| GET    | `/api/notes`         | Get your notes        |
-| POST   | `/api/notes`         | Create a note         |
-| PUT    | `/api/notes/{id}`    | Update a note         |
-| DELETE | `/api/notes/{id}`    | Delete a note         |
-
-### Admin only
-
-| Method | Endpoint                                      | Description            |
-| ------ | --------------------------------------------- | ---------------------- |
-| GET    | `/api/admin/getusers`                         | List all users         |
-| GET    | `/api/admin/user/{id}`                        | Get user by ID         |
-| PUT    | `/api/admin/update-role`                      | Change user role       |
-| PUT    | `/api/admin/update-lock-status`               | Lock/unlock account    |
-| PUT    | `/api/admin/update-expiry-status`             | Expire account         |
-| PUT    | `/api/admin/update-enabled-status`            | Enable/disable account |
-| PUT    | `/api/admin/update-credentials-expiry-status` | Expire credentials     |
-| PUT    | `/api/admin/update-password`                  | Force update password  |
-| GET    | `/api/audit`                                  | All audit logs         |
-| GET    | `/api/audit/note/{id}`                        | Audit logs for a note  |
-
----
-
-## Two-factor authentication
-
-2FA is implemented using TOTP (Time-based One-Time Passwords), compatible with Google Authenticator and any other TOTP app (Authy, 1Password, etc.).
-
-**Setup flow**
-
-1. User enables 2FA — backend generates a TOTP secret and returns a QR code URI
-2. User scans the QR code in Google Authenticator
-3. User confirms setup by submitting a valid 6-digit code
-4. `isTwoFactorEnabled` is set to `true` on the user — subsequent logins require a TOTP code
-
-**Login flow with 2FA enabled**
-
-1. Submit username + password as usual
-2. If 2FA is enabled, the signin response signals that a TOTP code is required
-3. Submit the 6-digit code from Google Authenticator to complete authentication and receive the JWT
-
-**Relevant endpoints**
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/2fa/enable` | Generate secret + QR code URI |
-| POST | `/api/auth/2fa/verify-setup` | Confirm setup with first TOTP code |
-| POST | `/api/auth/2fa/disable` | Turn off 2FA |
-| POST | `/api/auth/2fa/verify` | Verify TOTP code during login |
-
-The `twoFactorSecret` is stored on the `User` entity and never exposed in API responses. The `isTwoFactorEnabled` flag is visible in `/api/auth/user` so the frontend can conditionally show the 2FA prompt.
-
----
-
-## OAuth2 flow
-
-After a successful OAuth2 login (GitHub or Google), the user is redirected to:
-
-```
-{frontend.url}/oauth2/redirect?token=<jwt>
-```
-
-The frontend should extract the token from the query param and store it for subsequent requests.
+Server starts on `http://localhost:8080`. Frontend URL defaults to `http://localhost:3000` — change it in `application.yaml` or via env if needed.
 
 ---
 
 ## Seed data
 
-On startup, the app creates two default users if they don't exist:
+On startup, the app creates two default users if they don't already exist:
 
-| Username | Password    | Role  | Notes                     |
+| Username | Password    | Role  | Status                    |
 | -------- | ----------- | ----- | ------------------------- |
 | `user1`  | `password1` | USER  | Account locked by default |
 | `admin`  | `adminPass` | ADMIN | Fully enabled             |
+
+> When adapting this template for your own project, update or remove the seed data in `SecurityConfig.java` to match your use case.
+
+---
+
+## API reference
+
+### Public endpoints (no auth required)
+
+| Method | Endpoint                            | Description                                         |
+| ------ | ----------------------------------- | --------------------------------------------------- |
+| POST   | `/api/auth/public/signin`           | Login — returns JWT                                 |
+| POST   | `/api/auth/public/signup`           | Register a new user                                 |
+| POST   | `/api/auth/public/forgot-password`  | Send a password reset email                         |
+| POST   | `/api/auth/public/reset-password`   | Reset password using a token                        |
+| POST   | `/api/auth/public/verify-2fa-login` | Verify TOTP code during login (after receiving JWT) |
+
+### Authenticated endpoints
+
+| Method | Endpoint                    | Description                                      |
+| ------ | --------------------------- | ------------------------------------------------ |
+| GET    | `/api/auth/user`            | Get current user info                            |
+| GET    | `/api/auth/username`        | Get current username                             |
+| GET    | `/api/auth/user/2fa-status` | Check whether 2FA is enabled for current user    |
+| POST   | `/api/auth/enable-2fa`      | Generate TOTP secret and return QR code URI      |
+| POST   | `/api/auth/verify-2fa`      | Confirm TOTP setup with first code — enables 2FA |
+| POST   | `/api/auth/disable-2fa`     | Disable 2FA for current user                     |
+
+### Admin-only endpoints
+
+| Method | Endpoint                                      | Description                    |
+| ------ | --------------------------------------------- | ------------------------------ |
+| GET    | `/api/admin/getusers`                         | List all users                 |
+| GET    | `/api/admin/user/{id}`                        | Get a user by ID               |
+| PUT    | `/api/admin/update-role`                      | Change a user's role           |
+| PUT    | `/api/admin/update-lock-status`               | Lock or unlock an account      |
+| PUT    | `/api/admin/update-expiry-status`             | Expire or restore an account   |
+| PUT    | `/api/admin/update-enabled-status`            | Enable or disable an account   |
+| PUT    | `/api/admin/update-credentials-expiry-status` | Expire or restore credentials  |
+| PUT    | `/api/admin/update-password`                  | Force-update a user's password |
+
+---
+
+## Authentication flows
+
+### Standard login (no 2FA)
+
+1. `POST /api/auth/public/signin` with `{ username, password }`
+2. Receive `{ username, roles, jwtToken }` in response
+3. Include the token in all subsequent requests as `Authorization: Bearer <token>`
+
+### Login with 2FA enabled
+
+1. `POST /api/auth/public/signin` with `{ username, password }`
+2. Receive JWT in response — but 2FA verification is still required
+3. `POST /api/auth/public/verify-2fa-login?code=<totp>&jwtToken=<token>`
+4. On success, the JWT is now valid for authenticated requests
+
+### Setting up 2FA
+
+1. `POST /api/auth/enable-2fa` — backend generates a TOTP secret and returns a QR code URI
+2. User scans the QR code in Google Authenticator (or any TOTP app)
+3. `POST /api/auth/verify-2fa?code=<totp>` — confirms setup with the first code and sets `isTwoFactorEnabled = true`
+
+### Password reset
+
+1. `POST /api/auth/public/forgot-password?email=<email>` — sends a reset link to the user's email
+2. User clicks the link: `{frontend.url}/reset-password?token=<token>`
+3. `POST /api/auth/public/reset-password?token=<token>&newPassword=<password>` — resets the password (token expires after 24 hours and is single-use)
+
+### OAuth2 login (GitHub / Google)
+
+Redirect the user to the standard Spring OAuth2 endpoint:
+
+```
+GET /oauth2/authorization/github
+GET /oauth2/authorization/google
+```
+
+On success, the user is redirected to:
+
+```
+{frontend.url}/oauth2/redirect?token=<jwt>
+```
+
+Extract the token from the query param and store it for subsequent requests. New OAuth2 users are automatically registered with `ROLE_USER`.
+
+---
+
+## Using this as a template
+
+The domain layer (notes + audit logs) is completely separate from the auth and security setup. To use this as a starting point for your own project, here's what to keep and what to remove.
+
+### Step 1 — Delete the domain layer
+
+**Notes feature:**
+
+```
+controller/NotesController.java
+entity/Note.java
+repository/NoteRepository.java
+service/NoteService.java
+service/impl/NoteServiceImpl.java
+```
+
+**Audit logs (delete if you don't need operation logging):**
+
+```
+controller/AuditLogController.java
+entity/AuditLog.java
+repository/AuditLogRepository.java
+service/AuditLogService.java
+service/impl/AuditLogServiceImpl.java
+```
+
+### Step 2 — Keep the auth core
+
+```
+security/                         # entire package — do not touch
+controller/AuthController.java    # signin, signup, 2FA, forgot/reset password
+controller/AdminController.java   # user management
+controller/CsrfController.java    # CSRF token endpoint (if enabling CSRF)
+entity/User.java
+entity/Role.java
+entity/AppRole.java
+entity/PasswordResetToken.java
+repository/UserRepository.java
+repository/RoleRepository.java
+repository/PasswordResetTokenRepository.java
+service/UserService.java + impl
+service/TotpService.java + impl
+service/EmailService.java
+dtos/UserDTO.java
+```
+
+### Step 3 — Update project identity
+
+**`pom.xml`** — update `groupId`, `artifactId`, and `name`:
+
+```xml
+<groupId>com.your.company</groupId>
+<artifactId>your-project</artifactId>
+<name>your-project</name>
+```
+
+**Package rename** — global find & replace:
+
+```
+com.secure.notes → com.your.package
+```
+
+**`application.yaml`** — update `spring.application.name` and the datasource DB name.
+
+**`SecurityConfig.java`** — update the `CommandLineRunner` seed data to match your use case. Remove `user1` if you don't need a locked test user.
+
+### Step 4 — Add your own domain layer
+
+Once the notes layer is removed, add your own entities, repositories, services, and controllers. The security filter chain, JWT handling, and OAuth2 flow will protect your new endpoints automatically.
+
+To access the authenticated user inside your controllers, use `@AuthenticationPrincipal` the same way `NotesController` does:
+
+```java
+@GetMapping("/my-resource")
+public ResponseEntity<?> getResource(@AuthenticationPrincipal UserDetails userDetails) {
+    String username = userDetails.getUsername();
+    // ...
+}
+```
+
+---
+
+## Configuration reference
+
+### Environment variables
+
+| Variable         | Description                                                           |
+| ---------------- | --------------------------------------------------------------------- |
+| `DB_NAME`        | MySQL database name                                                   |
+| `DB_USERNAME`    | MySQL username                                                        |
+| `DB_PASSWORD`    | MySQL password                                                        |
+| `JWT_SECRET`     | Base64-encoded 256-bit secret (use `GenerateSecret.java` to generate) |
+| `JWT_EXPIRATION` | Token expiry in milliseconds (e.g. `86400000` = 24 hours)             |
+| `EMAIL`          | Gmail address for sending reset emails                                |
+| `EMAIL_PASSWORD` | Gmail App Password (not your account password)                        |
+| `GITHUB_CLIENT`  | GitHub OAuth app client ID                                            |
+| `GITHUB_SECRET`  | GitHub OAuth app client secret                                        |
+| `GOOGLE_CLIENT`  | Google OAuth app client ID                                            |
+| `GOOGLE_SECRET`  | Google OAuth app client secret                                        |
 
 ---
 
@@ -197,71 +308,9 @@ notes/
 ├── security/
 │   ├── jwt/             # JWT filter, utils, entry point
 │   ├── services/        # UserDetailsImpl, UserDetailsServiceImpl
-│   ├── config/          # OAuth2 success handler
+│   ├── config/          # OAuth2 success handler, TOTP config
 │   ├── request/         # Login/signup request DTOs
-│   └── response/        # Response DTOs
+│   ├── response/        # Response DTOs
+│   └── util/            # AuthUtil (resolves logged-in user)
 └── dtos/                # UserDTO
 ```
-
----
-
-## Using this as an auth template
-
-The notes feature is just the domain layer — the entire auth and security setup is independent of it. To use this as a starting point for your own project, here's what to keep and what to remove.
-
-### What to delete
-
-**Domain-specific files — delete these entirely:**
-
-```
-controller/NotesController.java
-entity/Note.java
-repository/NoteRepository.java
-service/NoteService.java
-service/impl/NoteServiceImpl.java
-```
-
-**Audit log (optional) — delete if you don't need operation logging:**
-
-```
-controller/AuditLogController.java
-entity/AuditLog.java
-repository/AuditLogRepository.java
-service/AuditLogService.java
-service/impl/AuditLogServiceImpl.java
-```
-
-### What to keep (the auth core)
-
-```
-security/                        # entire package — don't touch
-controller/AuthController.java   # signin, signup, forgot/reset password
-controller/AdminController.java  # user management endpoints
-controller/CsrfController.java   # CSRF token endpoint
-entity/User.java
-entity/Role.java
-entity/AppRole.java
-entity/PasswordResetToken.java
-repository/UserRepository.java
-repository/RoleRepository.java
-repository/PasswordResetTokenRepository.java
-service/UserService.java + impl
-service/EmailService.java
-dtos/UserDTO.java
-```
-
-### What to update
-
-**`SecurityConfig.java`** — remove the notes-related permit rules if any, and update the `CommandLineRunner` seed data to match your use case.
-
-**`application.yaml`** — update `spring.application.name` and the datasource DB name.
-
-**`pom.xml`** — update `groupId`, `artifactId`, and `name` to match your project.
-
-**Package rename** — do a global find & replace on `com.secure.notes` → `com.your.package`.
-
-### What to add
-
-Once the notes layer is removed, add your own domain entities, repositories, services, and controllers. The security filter chain, JWT handling, and OAuth2 flow will protect your new endpoints automatically — just follow the same patterns used in `NotesController` for accessing the authenticated user via `@AuthenticationPrincipal`.
-
----
