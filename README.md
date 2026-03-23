@@ -1,6 +1,6 @@
 ﻿# AuthTemplate
 
-A full-stack notes application built with Spring Boot and React, focused on security. JWT auth, OAuth2 (GitHub + Google), role-based access control, audit logging, and password reset — all in one.
+AuthTemplate is a plug-and-play Spring Boot + React authentication boilerplate with JWT, OAuth2 (GitHub & Google), TOTP-based MFA, RBAC, email-based password reset, and audit logging — everything you need to bootstrap secure auth without starting from scratch.
 
 ---
 
