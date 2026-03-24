@@ -38,8 +38,7 @@ A plug-and-play Spring Boot + React authentication boilerplate. Drop it in, swap
 <img width="1919" height="930" alt="Screenshot 2026-03-24 182327" src="https://github.com/user-attachments/assets/03ede6f1-c190-4ab5-8580-f6bf222d8b30" />
 <img width="1893" height="926" alt="Screenshot 2026-03-24 182353" src="https://github.com/user-attachments/assets/7f9879ed-1eec-4585-b8d0-3f00e685cd95" />
 <img width="1902" height="893" alt="Screenshot 2026-03-24 182437" src="https://github.com/user-attachments/assets/db1fe75b-3f0d-4902-a659-4a274801eba8" />
-<img width="1901" height="903" alt="Screenshot 2026-03-24 182448" src="https://github.com/user-attachments/assets/33a6043e-3949-4e9c-b6a9-5617fc67f694" />
-    
+<img width="1895" height="926" alt="image" src="https://github.com/user-attachments/assets/94dfa56b-6c3e-4d5a-b149-6ec39d34d2d9" />    
 ---
 
 ## Tech stack
